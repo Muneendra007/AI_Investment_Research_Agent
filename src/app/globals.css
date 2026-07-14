@@ -5,45 +5,45 @@
    warm orange/red for Pass. Glassmorphism cards, micro-animations. */
 
 :root {
-  --background: #0a0e1a;
-  --foreground: #e4e8f1;
-  --surface: #111827;
-  --surface-elevated: #1a2236;
-  --surface-glass: rgba(17, 24, 39, 0.7);
-  --border: rgba(99, 120, 170, 0.2);
-  --border-bright: rgba(99, 120, 170, 0.4);
+  --background: #05070f;
+  --foreground: #f3f4f6;
+  --surface: #0c1222;
+  --surface-elevated: #161f38;
+  --surface-glass: rgba(12, 18, 34, 0.75);
+  --border: rgba(255, 255, 255, 0.06);
+  --border-bright: rgba(255, 255, 255, 0.15);
 
-  /* Accent: Invest (cyan → blue) */
-  --invest-from: #06b6d4;
-  --invest-to: #6366f1;
-  --invest-glow: rgba(6, 182, 212, 0.3);
+  /* Accent: Invest (Rich Jade Mint → Deep Royal Blue) */
+  --invest-from: #10b981;
+  --invest-to: #3b82f6;
+  --invest-glow: rgba(16, 185, 129, 0.2);
 
-  /* Accent: Pass (orange → red) */
+  /* Accent: Pass (Champagne Amber → Velvet Rose/Crimson) */
   --pass-from: #f59e0b;
-  --pass-to: #ef4444;
-  --pass-glow: rgba(245, 158, 11, 0.3);
+  --pass-to: #f43f5e;
+  --pass-glow: rgba(245, 158, 11, 0.2);
 
   /* Neutral accents */
-  --accent-cyan: #22d3ee;
-  --accent-purple: #a78bfa;
-  --accent-green: #34d399;
-  --accent-yellow: #fbbf24;
-  --accent-red: #f87171;
+  --accent-cyan: #06b6d4;
+  --accent-purple: #8b5cf6;
+  --accent-green: #10b981;
+  --accent-yellow: #f59e0b;
+  --accent-red: #ef4444;
 
   /* Sentiment colors */
-  --sentiment-positive: #34d399;
-  --sentiment-neutral: #94a3b8;
-  --sentiment-negative: #f87171;
+  --sentiment-positive: #10b981;
+  --sentiment-neutral: #6b7280;
+  --sentiment-negative: #ef4444;
 
   /* Severity colors */
-  --severity-low: #34d399;
-  --severity-medium: #fbbf24;
-  --severity-high: #f87171;
+  --severity-low: #10b981;
+  --severity-medium: #f59e0b;
+  --severity-high: #ef4444;
 
   /* Text */
-  --text-primary: #e4e8f1;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #4b5563;
 }
 
 @theme inline {
@@ -73,7 +73,7 @@ body {
 
 .glass-card:hover {
   border-color: var(--border-bright);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
 
 /* ─── Gradient Backgrounds ─────────────────────────────────────────── */
@@ -87,9 +87,9 @@ body {
 
 .bg-gradient-hero {
   background:
-    radial-gradient(ellipse at 20% 50%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 20% 50%, rgba(16, 185, 129, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(139, 92, 246, 0.03) 0%, transparent 50%),
     var(--background);
 }
 
