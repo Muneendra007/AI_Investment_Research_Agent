@@ -56,38 +56,46 @@ export async function companyOverviewNode(
     );
 
     if (!searchResult || searchResult.results.length === 0) {
+      const structuredLlm = llm.withStructuredOutput(OverviewSchema);
+      const overview = await structuredLlm.invoke(
+        `You are an equity research analyst compiling a clean business overview for: ${resolvedEntity.name} (${resolvedEntity.ticker || "Private"}).
+Sector: ${resolvedEntity.sector}.
+
+Provide a high-level summary of who the company is and what they do, their business model (how they make money), estimated valuation/funding or market cap, and 2-5 flagship products or services.
+Translate complex finance jargon into clear details for a retail investor.`
+      );
+
       return {
         currentNode: "companyOverview",
         overview: {
-          summary: `${resolvedEntity.name} is a resolved entity in the ${resolvedEntity.sector} sector. No additional web search results were found.`,
-          businessModel: "Details not available from web search.",
-          fundingValuation: resolvedEntity.marketCap
-            ? `Public Market Cap: $${(resolvedEntity.marketCap / 1e9).toFixed(2)}B`
-            : "Private company / estimates not available.",
-          keyProducts: ["Core services"],
+          summary: overview.summary,
+          businessModel: overview.businessModel,
+          fundingValuation: overview.fundingValuation,
+          keyProducts: overview.keyProducts,
         },
         completedNodes: ["companyOverview"],
       };
     }
 
-    // Format search results for LLM
+    // Format concise search results for LLM (token efficient)
     const contextList = searchResult.results
-      .map((r, i) => `[Result ${i + 1}] Title: ${r.title}\nContent: ${r.content}`)
-      .join("\n\n");
+      .slice(0, 3)
+      .map((r, i) => `[${i + 1}] ${r.title}: ${r.content.slice(0, 250)}`)
+      .join("\n");
 
     const answerContext = searchResult.answer
-      ? `AI Answer Summary: ${searchResult.answer}\n\n`
+      ? `Overview Context: ${searchResult.answer.slice(0, 300)}\n`
       : "";
 
     // Invoke LLM to structure the overview
     const structuredLlm = llm.withStructuredOutput(OverviewSchema);
     const overview = await structuredLlm.invoke(
-      `You are an equity research analyst compiling a clean business overview for: ${resolvedEntity.name}.
+      `You are an equity research analyst compiling a business overview for: ${resolvedEntity.name}.
       
-Use the following live web search results as your context:
+Context:
 ${answerContext}${contextList}
 
-Compile this data into the requested structured output. Translate complex finance jargon into clear details for a retail investor.`
+Provide a high-level summary, business model, funding/valuation, and 2-4 key products.`
     );
 
     return {

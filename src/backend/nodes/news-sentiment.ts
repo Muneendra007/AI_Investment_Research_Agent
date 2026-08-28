@@ -10,6 +10,7 @@ import {
   daysAgo,
   today,
 } from "@/backend/services/finnhub";
+import { getNewsApiArticles } from "@/backend/services/newsapi";
 import { tavilySearch } from "@/backend/services/tavily";
 import type { NewsItem } from "@/frontend/types";
 
@@ -41,10 +42,28 @@ export async function newsSentimentNode(
   const ticker = resolvedEntity.ticker;
 
   try {
-    // Fetch news from last 90 days
+    // 1. Fetch news from last 90 days via Finnhub
     let rawNews = await getCompanyNews(ticker, daysAgo(90), today());
 
-    // Fallback: If no news is found on Finnhub, search the web via Tavily
+    // 2. Fallback: If no news on Finnhub, try NewsAPI
+    if (!rawNews || rawNews.length === 0) {
+      const newsApiArticles = await getNewsApiArticles(resolvedEntity.name, 10);
+      if (newsApiArticles.length > 0) {
+        rawNews = newsApiArticles.map((a, i) => ({
+          category: "general",
+          datetime: Math.floor(new Date(a.publishedAt).getTime() / 1000) || Math.floor(Date.now() / 1000) - i * 3600,
+          headline: a.title,
+          id: i,
+          image: a.urlToImage || "",
+          related: ticker,
+          source: a.source.name || "NewsAPI",
+          summary: a.description || a.content || "",
+          url: a.url,
+        }));
+      }
+    }
+
+    // 3. Fallback: If still no news, search the web via Tavily
     if (!rawNews || rawNews.length === 0) {
       const searchResult = await tavilySearch(
         `"${resolvedEntity.name}" latest news headlines 2026`,
@@ -91,29 +110,20 @@ export async function newsSentimentNode(
       };
     }
 
-    // Take top 10 most recent headlines
+    // Take top 6 most recent headlines
     const topNews = rawNews
       .sort((a, b) => b.datetime - a.datetime)
-      .slice(0, 10);
+      .slice(0, 6);
 
     // Batch sentiment classification in ONE LLM call
     const headlineList = topNews
-      .map((n, i) => `${i}. "${n.headline}"`)
+      .map((n, i) => `${i}. "${n.headline.slice(0, 140)}"`)
       .join("\n");
 
     const structuredLlm = llm.withStructuredOutput(SentimentBatchSchema);
     const sentimentResult = await structuredLlm.invoke(
-      `You are a financial news sentiment classifier. Classify each headline as "positive", "neutral", or "negative" from an investor's perspective.
-
-Consider:
-- Positive: good earnings, growth, partnerships, product launches, upgrades
-- Negative: lawsuits, investigations, downgrades, revenue misses, layoffs, scandals
-- Neutral: routine announcements, minor updates, factual reports without clear impact
-
-Headlines for ${resolvedEntity.name} (${ticker}):
-${headlineList}
-
-Classify each by its 0-based index.`
+      `Classify the sentiment of each headline for ${resolvedEntity.name} (${ticker}) as "positive", "neutral", or "negative":
+${headlineList}`
     );
 
     // Build sentiment map

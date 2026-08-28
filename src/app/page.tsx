@@ -16,16 +16,29 @@ const PIPELINE_NODES = [
   { id: "entityResolver", label: "Resolve Company", description: "Identifying ticker, sector, exchange" },
   { id: "companyOverview", label: "Web Overview", description: "Moat, products & business model" },
   { id: "financialData", label: "Financials", description: "Fetching price, margins, growth" },
-  { id: "newsSentiment", label: "News & Sentiment", description: "Analyzing recent headlines" },
+  { id: "newsSentiment", label: "News Sentiment", description: "Analyzing recent headlines" },
   { id: "competitiveAnalysis", label: "Competitive", description: "Market position & peers" },
-  { id: "riskFlags", label: "Risk Flags", description: "Scanning for red flags" },
-  { id: "synthesis", label: "Decision", description: "Weighing all signals" },
+  { id: "riskFlags", label: "Risk Matrix", description: "Scanning for red flags" },
+  { id: "synthesis", label: "Verdict", description: "Weighing all signals" },
 ];
 
-const SUGGESTIONS = [
-  { label: "Is Microsoft (MSFT) a buy?", query: "Is Microsoft a buy?" },
-  { label: "Research MyFitnessPal", query: "Research MyFitnessPal" },
-  { label: "Analyze SBUX stock", query: "Analyze SBUX stock" },
+const SUGGESTION_CATEGORIES = [
+  {
+    category: "🚀 Tech & AI Leaders",
+    items: [
+      { label: "Analyze Nvidia (NVDA)", query: "Analyze Nvidia stock" },
+      { label: "Is Apple a buy?", query: "Is Apple a buy right now?" },
+      { label: "Evaluate Microsoft", query: "Should I invest in Microsoft?" },
+    ],
+  },
+  {
+    category: "⚡ Growth & Consumer",
+    items: [
+      { label: "Deep-dive Tesla (TSLA)", query: "Research Tesla stock" },
+      { label: "Starbucks Valuation", query: "Analyze Starbucks (SBUX)" },
+      { label: "Research Tata Motors", query: "Evaluate Tata Motors" },
+    ],
+  },
 ];
 
 export default function Home() {
@@ -36,9 +49,30 @@ export default function Home() {
   const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
+  // Streaming state for active multi-node analysis
+  const [activeAnalysisState, setActiveAnalysisState] = useState<{
+    companyName: string;
+    activeNode: string;
+    completedNodes: string[];
+    nodeStatuses: Record<string, NodeStatus>;
+  } | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const setDefaultWelcome = () => {
+    setMessages([
+      {
+        id: "welcome",
+        sender: "assistant",
+        text: "👋 **Welcome to AuraInvest AI** — your institutional multi-agent equity research terminal.\n\nAsk me about any company (public or private), e.g. *\"Is Nvidia a buy?\"* or *\"Analyze Tesla's valuation\"*. I will run 7 autonomous research nodes to deliver a comprehensive Buy/Pass verdict with score breakdowns, risk flags, and live financial metrics.",
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+  };
+
   // Load from local storage on mount
   useEffect(() => {
-    const saved = localStorage.getItem("research_chat_history");
+    const saved = localStorage.getItem("aurainvest_chat_history");
     if (saved) {
       try {
         setMessages(JSON.parse(saved));
@@ -54,30 +88,9 @@ export default function Home() {
   // Save to local storage when messages change
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem("research_chat_history", JSON.stringify(messages));
+      localStorage.setItem("aurainvest_chat_history", JSON.stringify(messages));
     }
   }, [messages, isLoaded]);
-
-  const setDefaultWelcome = () => {
-    setMessages([
-      {
-        id: "welcome",
-        sender: "assistant",
-        text: "Hello! I am your AI Investment Research Agent. Ask me about any company (public or private), e.g. 'Is Microsoft a buy?' or ask general questions. I will research the stock across multiple dimensions and provide a Buy/Pass verdict.",
-        timestamp: new Date().toISOString(),
-      },
-    ]);
-  };
-
-  // Streaming state for the active analysis
-  const [activeAnalysisState, setActiveAnalysisState] = useState<{
-    companyName: string;
-    activeNode: string;
-    completedNodes: string[];
-    nodeStatuses: Record<string, NodeStatus>;
-  } | null>(null);
-
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -104,8 +117,6 @@ export default function Home() {
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setLoading(true);
-
-      // Reset active stream checklists
       setActiveAnalysisState(null);
 
       // Add a placeholder message for the assistant
@@ -135,13 +146,12 @@ export default function Home() {
         }
 
         if (!response.body) {
-          throw new Error("No response body (streaming not supported)");
+          throw new Error("No response stream available");
         }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
-
         let streamText = "";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let graphResult: any = null;
@@ -151,100 +161,106 @@ export default function Home() {
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-          const events = buffer.split("\n\n");
-          buffer = events.pop() || "";
+          const lines = buffer.split("\n\n");
+          buffer = lines.pop() || "";
 
-          for (const event of events) {
-            const dataLine = event
-              .split("\n")
-              .find((line) => line.startsWith("data: "));
-            if (!dataLine) continue;
-
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
             try {
-              const eventData = JSON.parse(dataLine.slice(6));
+              const event = JSON.parse(line.slice(6));
 
-              switch (eventData.type) {
-                case "chat_response":
-                  streamText += eventData.text;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMsgId
-                        ? { ...m, text: streamText }
-                        : m
-                    )
-                  );
-                  break;
+              // 1. Intent Classified
+              if (event.type === "intent_classified") {
+                const initialStatuses: Record<string, NodeStatus> = {};
+                PIPELINE_NODES.forEach((n) => (initialStatuses[n.id] = "pending"));
 
-                case "intent_classified":
-                  // User asked for analysis, trigger loader
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMsgId
-                        ? {
-                            ...m,
-                            text: `Initiating multi-node analysis for **${eventData.companyName}**...`,
-                            isAnalyzing: true,
-                          }
-                        : m
-                    )
-                  );
-                  setActiveAnalysisState({
-                    companyName: eventData.companyName,
-                    activeNode: "entityResolver",
-                    completedNodes: [],
-                    nodeStatuses: Object.fromEntries(
-                      PIPELINE_NODES.map((n) => [n.id, "pending" as NodeStatus])
-                    ),
-                  });
-                  break;
+                setActiveAnalysisState({
+                  companyName: event.companyName,
+                  activeNode: "entityResolver",
+                  completedNodes: [],
+                  nodeStatuses: initialStatuses,
+                });
 
-                case "node_start":
-                  setActiveAnalysisState((prev) => {
-                    if (!prev) return null;
-                    return {
-                      ...prev,
-                      activeNode: eventData.node,
-                      nodeStatuses: {
-                        ...prev.nodeStatuses,
-                        [eventData.node]: "running" as NodeStatus,
-                      },
-                    };
-                  });
-                  break;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? {
+                          ...m,
+                          text: `🔍 Initializing multi-agent research pipeline for **${event.companyName}**...`,
+                          isAnalyzing: true,
+                        }
+                      : m
+                  )
+                );
+              }
 
-                case "node_complete":
-                  setActiveAnalysisState((prev) => {
-                    if (!prev) return null;
-                    return {
-                      ...prev,
-                      completedNodes: [...prev.completedNodes, eventData.node],
-                      nodeStatuses: {
-                        ...prev.nodeStatuses,
-                        [eventData.node]: "completed" as NodeStatus,
-                      },
-                    };
-                  });
-                  break;
+              // 2. Node Started
+              if (event.type === "node_start") {
+                setActiveAnalysisState((prev) => {
+                  if (!prev) return null;
+                  return {
+                    ...prev,
+                    activeNode: event.node,
+                    nodeStatuses: {
+                      ...prev.nodeStatuses,
+                      [event.node]: "running",
+                    },
+                  };
+                });
+              }
 
-                case "node_error":
-                  setActiveAnalysisState((prev) => {
-                    if (!prev) return null;
-                    return {
-                      ...prev,
-                      nodeStatuses: {
-                        ...prev.nodeStatuses,
-                        [eventData.node]: "error" as NodeStatus,
-                      },
-                    };
-                  });
-                  break;
+              // 3. Node Completed
+              if (event.type === "node_complete") {
+                setActiveAnalysisState((prev) => {
+                  if (!prev) return null;
+                  return {
+                    ...prev,
+                    completedNodes: [...prev.completedNodes, event.node],
+                    nodeStatuses: {
+                      ...prev.nodeStatuses,
+                      [event.node]: "completed",
+                    },
+                  };
+                });
+              }
 
-                case "final_result":
-                  graphResult = eventData.data;
-                  break;
+              // 4. Node Error
+              if (event.type === "node_error") {
+                setActiveAnalysisState((prev) => {
+                  if (!prev) return null;
+                  return {
+                    ...prev,
+                    nodeStatuses: {
+                      ...prev.nodeStatuses,
+                      [event.node]: "error",
+                    },
+                  };
+                });
+              }
+
+              // 5. Final Result
+              if (event.type === "final_result") {
+                graphResult = event.data;
+              }
+
+              // 6. Direct Chat Response
+              if (event.type === "chat_response") {
+                streamText = event.text;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, text: streamText, isAnalyzing: false }
+                      : m
+                  )
+                );
+              }
+
+              // 7. General Error
+              if (event.type === "error") {
+                throw new Error(event.error);
               }
             } catch (err) {
-              console.warn("SSE event parsing error:", err);
+              console.error("Error parsing stream chunk:", err);
             }
           }
         }
@@ -256,13 +272,12 @@ export default function Home() {
               if (graphResult) {
                 const verdict = graphResult.decision?.verdict || "Pass";
                 const summary = graphResult.decision?.executiveSummary || "Analysis complete.";
+                const company = graphResult.resolvedEntity?.name || graphResult.companyName;
+                const ticker = graphResult.resolvedEntity?.ticker ? ` (${graphResult.resolvedEntity.ticker})` : "";
+
                 return {
                   ...m,
-                  text: `Analysis complete! Here is the investment report for **${
-                    graphResult.resolvedEntity?.name || graphResult.companyName
-                  }**. I recommend **${verdict}**.
-                  
-> **Summary**: ${summary}`,
+                  text: `## 📊 Research Report: **${company}${ticker}**\n\n**Verdict:** ${verdict === "Invest" ? "🟢 **INVEST / BUY**" : "⚠️ **PASS / CAUTIOUS**"} · **Confidence:** **${graphResult.decision?.confidence ?? 0}%**\n\n> 💡 **Summary**: ${summary}`,
                   isAnalyzing: false,
                   analysisResult: graphResult as AgentState,
                 };
@@ -286,7 +301,7 @@ export default function Home() {
             m.id === assistantMsgId
               ? {
                   ...m,
-                  text: `Sorry, I encountered an error during analysis: ${errorMsg}`,
+                  text: `⚠️ **Analysis Error**: ${errorMsg}. Please check your connection or query.`,
                   isAnalyzing: false,
                 }
               : m
@@ -306,50 +321,64 @@ export default function Home() {
     const welcome: ChatMessage = {
       id: "welcome",
       sender: "assistant",
-      text: "Hello! I am your AI Investment Research Agent. Ask me about any company (public or private), e.g. 'Is Microsoft a buy?' or ask general questions. I will research the stock across multiple dimensions and provide a Buy/Pass verdict.",
+      text: "👋 **Welcome to AuraInvest AI** — your institutional multi-agent equity research terminal.\n\nAsk me about any company (public or private), e.g. *\"Is Nvidia a buy?\"* or *\"Analyze Tesla's valuation\"*. I will run 7 autonomous research nodes to deliver a comprehensive Buy/Pass verdict with score breakdowns, risk flags, and live financial metrics.",
       timestamp: new Date().toISOString(),
     };
     setMessages([welcome]);
-    localStorage.setItem("research_chat_history", JSON.stringify([welcome]));
+    localStorage.setItem("aurainvest_chat_history", JSON.stringify([welcome]));
     setExpandedAnalysisId(null);
     setShowClearConfirm(false);
   };
 
   return (
-    <main className="flex-1 flex flex-col max-w-5xl mx-auto w-full h-[calc(100vh-2rem)] my-4 px-4">
-      {/* ─── Header ─── */}
-      <header className="flex items-center justify-between py-4 border-b border-[rgba(255,255,255,0.08)]">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-md"
-            style={{
-              background: "linear-gradient(135deg, var(--invest-from), var(--invest-to))",
-            }}
-          >
-            🤖
+    <main className="flex-1 flex flex-col max-w-6xl mx-auto w-full h-screen px-4 sm:px-6 py-4">
+      {/* ─── Top Navigation Bar ─── */}
+      <header className="flex items-center justify-between py-3.5 px-4 sm:px-6 rounded-2xl glass-panel mb-4">
+        <div className="flex items-center gap-3.5">
+          {/* Logo Badge */}
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-cyan-500 to-purple-600 p-[1px] shadow-lg shadow-cyan-500/20">
+            <div className="w-full h-full bg-slate-950 rounded-[11px] flex items-center justify-center text-lg">
+              ⚡
+            </div>
           </div>
           <div>
-            <h1 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-              AI Investment Research Chatbot
-            </h1>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Multi-node LangGraph Pipeline · Powered by Groq Llama 3.3
+            <div className="flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-white font-sans">
+                AuraInvest <span className="text-cyan-400">AI</span>
+              </h1>
+              <span className="hidden sm:inline-flex px-2 py-0.5 text-[10px] font-mono font-bold rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                v2.0
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 hidden sm:block">
+              Multi-Node LangGraph Pipeline · Powered by Groq LPU
             </p>
           </div>
         </div>
 
-        {messages.length > 1 && (
-          <button
-            onClick={handleNewChat}
-            className="text-xs px-3.5 py-2 rounded-lg transition-all border border-[rgba(239,68,68,0.3)] text-[var(--accent-red)] hover:bg-[rgba(239,68,68,0.08)] cursor-pointer hover:border-[rgba(239,68,68,0.6)]"
-          >
-            🧹 New Chat
-          </button>
-        )}
+        {/* Status Indicators & Clear Action */}
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/60 border border-white/5 text-xs">
+            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
+            <span className="text-slate-300 font-mono text-[11px]">
+              Groq Engine Online
+            </span>
+          </div>
+
+          {messages.length > 1 && (
+            <button
+              onClick={handleNewChat}
+              className="text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all border border-rose-500/30 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 hover:border-rose-500/50 cursor-pointer flex items-center gap-1.5"
+            >
+              <span>🧹</span>
+              <span>New Session</span>
+            </button>
+          )}
+        </div>
       </header>
 
-      {/* ─── Chat Area ─── */}
-      <section className="flex-1 overflow-y-auto py-6 space-y-6 pr-2 scrollbar-thin">
+      {/* ─── Chat Feed Section ─── */}
+      <section className="flex-1 overflow-y-auto px-1 py-4 space-y-6 scrollbar-thin">
         {messages.map((message) => {
           const isUser = message.sender === "user";
           const hasResult = !!message.analysisResult;
@@ -360,20 +389,29 @@ export default function Home() {
               key={message.id}
               className={`flex flex-col ${isUser ? "items-end animate-slide-up" : "items-start animate-fade-in"}`}
             >
-              {/* Message Bubble */}
+              {/* Message Header Avatar & Label */}
+              <div className="flex items-center gap-2 mb-1.5 px-1">
+                <span className="text-xs font-semibold text-slate-400 font-mono">
+                  {isUser ? "👤 You" : "🤖 AuraInvest Agent"}
+                </span>
+              </div>
+
+              {/* Message Bubble Card */}
               <div
-                className={`max-w-[85%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed border shadow-sm ${
+                className={`max-w-[92%] sm:max-w-[85%] rounded-2xl p-5 text-sm leading-relaxed border transition-all ${
                   isUser
-                    ? "bg-gradient-invest text-white border-[rgba(6,182,212,0.3)] rounded-tr-none"
-                    : "glass-card text-[var(--text-primary)] rounded-tl-none"
+                    ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white border-white/10 shadow-lg shadow-cyan-900/20 rounded-tr-none"
+                    : "glass-panel text-slate-200 rounded-tl-none border-white/10"
                 }`}
               >
-                {/* Text Content */}
-                <p className="whitespace-pre-wrap">{message.text}</p>
+                {/* Message Content */}
+                <div className="whitespace-pre-wrap leading-relaxed space-y-2">
+                  {message.text}
+                </div>
 
-                {/* Inline loading graph checklist */}
+                {/* Inline Multi-Node Research Progress Tracker */}
                 {message.isAnalyzing && activeAnalysisState && (
-                  <div className="mt-4 p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+                  <div className="mt-4 p-4 rounded-xl bg-slate-950/60 border border-cyan-500/20 shadow-inner">
                     <PipelineProgress
                       nodes={PIPELINE_NODES.map((node) => ({
                         ...node,
@@ -383,53 +421,87 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Collapsible Action Button for Investment Report */}
+                {/* Toggle Dashboard Button */}
                 {hasResult && message.analysisResult && (
-                  <div className="mt-4 pt-3 border-t border-[rgba(255,255,255,0.08)] flex justify-between items-center">
-                    <span className="text-xs text-[var(--text-muted)] font-mono">
-                      Target: {message.analysisResult.resolvedEntity?.ticker || message.analysisResult.companyName}
-                    </span>
+                  <div className="mt-4 pt-3.5 border-t border-white/10 flex flex-wrap justify-between items-center gap-3">
+                    <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                      <span>Target: {message.analysisResult.resolvedEntity?.ticker || message.analysisResult.companyName}</span>
+                    </div>
                     <button
                       onClick={() => setExpandedAnalysisId(isExpanded ? null : message.id)}
-                      className="text-xs font-bold px-3.5 py-1.5 rounded-lg transition-all"
+                      className="text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-md"
                       style={{
-                        background: isExpanded ? "rgba(255,255,255,0.08)" : "linear-gradient(135deg, var(--invest-from), var(--invest-to))",
+                        background: isExpanded
+                          ? "rgba(255, 255, 255, 0.08)"
+                          : "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)",
                         color: "white",
+                        border: isExpanded ? "1px solid rgba(255,255,255,0.15)" : "none",
                       }}
                     >
-                      {isExpanded ? "Close Dashboard" : "🔍 View Full Report"}
+                      <span>{isExpanded ? "▲ Collapse Cockpit" : "📊 Open Full Research Cockpit"}</span>
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Render Full Dashboard if Result is Expanded */}
+              {/* ─── Expanded Full Interactive Research Cockpit ─── */}
               {isExpanded && message.analysisResult && (
-                <div className="w-full mt-4 space-y-6 animate-slide-up">
-                  {/* Company Header Info */}
+                <div className="w-full mt-5 space-y-6 animate-slide-up">
+                  {/* Entity Header Banner */}
                   {message.analysisResult.resolvedEntity && (
-                    <div className="flex items-center gap-3 glass-card p-4">
-                      {message.analysisResult.resolvedEntity.logo && (
-                        <img
-                          src={message.analysisResult.resolvedEntity.logo}
-                          alt={message.analysisResult.resolvedEntity.name}
-                          className="w-10 h-10 rounded-lg object-contain bg-white p-0.5"
-                        />
-                      )}
-                      <div>
-                        <h2 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
-                          {message.analysisResult.resolvedEntity.name}
-                        </h2>
-                        <span className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>
-                          {message.analysisResult.resolvedEntity.ticker} ·{" "}
-                          {message.analysisResult.resolvedEntity.exchange} ·{" "}
-                          {message.analysisResult.resolvedEntity.sector}
-                        </span>
+                    <div className="glass-panel p-5 flex flex-wrap items-center justify-between gap-4 border border-cyan-500/20">
+                      <div className="flex items-center gap-3.5">
+                        {message.analysisResult.resolvedEntity.logo ? (
+                          <img
+                            src={message.analysisResult.resolvedEntity.logo}
+                            alt={message.analysisResult.resolvedEntity.name}
+                            className="w-12 h-12 rounded-xl object-contain bg-white p-1 shadow-md"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center text-xl">
+                            🏢
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                              {message.analysisResult.resolvedEntity.name}
+                            </h2>
+                            <span className="px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                              {message.analysisResult.resolvedEntity.ticker}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {message.analysisResult.resolvedEntity.exchange} ·{" "}
+                            {message.analysisResult.resolvedEntity.sector} ·{" "}
+                            {message.analysisResult.resolvedEntity.country || "Global"}
+                          </p>
+                        </div>
                       </div>
+
+                      {/* Stock Price Pill */}
+                      {message.analysisResult.financials && (
+                        <div className="text-right">
+                          <div className="text-lg font-bold font-mono text-white">
+                            ${message.analysisResult.financials.currentPrice.toFixed(2)}
+                          </div>
+                          <span
+                            className={`text-xs font-mono font-bold ${
+                              message.analysisResult.financials.change >= 0
+                                ? "text-emerald-400"
+                                : "text-rose-400"
+                            }`}
+                          >
+                            {message.analysisResult.financials.change >= 0 ? "▲ +" : "▼ "}
+                            {message.analysisResult.financials.changePercent.toFixed(2)}%
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* Redesigned Decision Card (Verdict, bottom line, pros/cons) */}
+                  {/* 1. Primary Verdict Card */}
                   {message.analysisResult.decision && (
                     <DecisionCard
                       decision={message.analysisResult.decision}
@@ -439,7 +511,7 @@ export default function Home() {
                     />
                   )}
 
-                  {/* Left-Right Dual Column details */}
+                  {/* 2. Dual-Column Intelligence Grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Left Column */}
                     <div className="space-y-6">
@@ -479,13 +551,13 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Error Notices (Non-fatal) */}
+                  {/* Non-fatal Warnings / Data Gaps */}
                   {message.analysisResult.errors && message.analysisResult.errors.length > 0 && (
-                    <div className="glass-card p-4 border-l-4 border-[var(--accent-yellow)]">
-                      <h4 className="text-xs font-bold uppercase tracking-wider mb-2 text-[var(--accent-yellow)]">
-                        ⚠️ Notices / Data Gaps
+                    <div className="glass-panel p-4 border-l-4 border-amber-400 bg-amber-950/10">
+                      <h4 className="text-xs font-bold uppercase tracking-wider mb-1.5 text-amber-300 flex items-center gap-1.5">
+                        <span>ℹ️</span> Data Quality & Coverage Notes
                       </h4>
-                      <ul className="space-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                      <ul className="space-y-1 text-xs text-slate-400">
                         {message.analysisResult.errors.map((err, i) => (
                           <li key={i}>• {err}</li>
                         ))}
@@ -500,109 +572,117 @@ export default function Home() {
         <div ref={messagesEndRef} />
       </section>
 
-      {/* ─── Suggestion Chips ─── */}
+      {/* ─── Hero Quick-Prompt Suggestions (Shown on initial load) ─── */}
       {messages.length === 1 && !loading && (
-        <section className="mb-3">
-          <p className="text-xs mb-2 text-center" style={{ color: "var(--text-muted)" }}>
-            Try asking one of these:
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {SUGGESTIONS.map((chip, i) => (
-              <button
-                key={i}
-                onClick={() => {
-                  setInput(chip.query);
-                  handleSendMessage(chip.query);
-                }}
-                className="text-xs px-3.5 py-1.5 rounded-full border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] transition-all hover:bg-[rgba(255,255,255,0.05)] cursor-pointer text-white"
-              >
-                {chip.label}
-              </button>
-            ))}
+        <section className="mb-4 animate-slide-up">
+          <div className="p-4 rounded-2xl glass-panel space-y-3">
+            <p className="text-xs font-semibold text-slate-300 uppercase tracking-wider text-center">
+              💡 Suggested Market Queries
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {SUGGESTION_CATEGORIES.map((cat, idx) => (
+                <div key={idx} className="space-y-1.5">
+                  <span className="text-[11px] font-bold text-slate-400 pl-1">
+                    {cat.category}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {cat.items.map((chip, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setInput(chip.query);
+                          handleSendMessage(chip.query);
+                        }}
+                        className="text-xs px-3 py-1.5 rounded-xl border border-white/10 bg-slate-900/50 hover:bg-cyan-500/10 hover:border-cyan-500/30 text-slate-200 transition-all cursor-pointer"
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}
 
-      {/* ─── Input Bar ─── */}
-      <footer className="py-4 border-t border-[rgba(255,255,255,0.08)]">
+      {/* ─── Floating Search / Input Bar ─── */}
+      <footer className="pt-2">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSendMessage(input);
           }}
-          className="flex gap-2 relative items-center"
+          className="relative flex items-center glass-panel p-1.5 shadow-2xl border-white/10"
         >
+          <div className="pl-3.5 pr-2 text-slate-400">
+            <span>🔍</span>
+          </div>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
             placeholder={
-              loading ? "Processing..." : "Ask: 'Should I buy Apple?' or 'Hi, explain the risks of TSLA'..."
+              loading
+                ? "Autonomous agents analyzing pipeline..."
+                : "Ask anything: 'Analyze NVDA', 'Is Tesla a buy?', 'Tata Motors valuation'..."
             }
-            className="search-input flex-1 px-4 py-3.5 pr-14 text-sm"
+            className="flex-1 bg-transparent border-none text-slate-100 placeholder-slate-500 text-sm focus:outline-none py-3 pr-24"
           />
           <button
             type="submit"
             disabled={loading || input.trim().length === 0}
-            className="absolute right-2 px-3 py-2 btn-primary text-sm flex items-center justify-center shadow-md disabled:opacity-30 disabled:cursor-not-allowed"
+            className="btn-primary px-5 py-2.5 text-xs font-bold flex items-center gap-1.5 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            Send
+            <span>{loading ? "Analyzing..." : "Research"}</span>
+            <span>↵</span>
           </button>
         </form>
+        <p className="text-[10px] text-center text-slate-500 mt-2 font-mono">
+          AuraInvest AI provides algorithmic financial research. Not direct financial advice.
+        </p>
       </footer>
-      {/* ─── Custom Clear-Chat Confirmation Modal ─── */}
+
+      {/* ─── Clear-Chat Confirmation Modal ─── */}
       {showClearConfirm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
           onClick={() => setShowClearConfirm(false)}
         >
           <div
-            className="rounded-2xl p-6 w-full max-w-sm shadow-2xl border"
-            style={{
-              background: "var(--card-bg)",
-              borderColor: "rgba(255,255,255,0.08)",
-            }}
+            className="glass-panel p-6 w-full max-w-sm border-white/10 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                style={{ background: "rgba(239,68,68,0.12)" }}
-              >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg bg-rose-500/15 border border-rose-500/30 text-rose-400">
                 🗑️
               </div>
-              <h3 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-                Start New Chat?
-              </h3>
+              <div>
+                <h3 className="text-base font-bold text-slate-100">
+                  Reset Research Session?
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Clear all chat and report history
+                </p>
+              </div>
             </div>
-            <p className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
-              This will clear the entire conversation history, including all analysis results. This action cannot be undone.
+            <p className="text-xs text-slate-300 mb-5 leading-relaxed">
+              This will clear the current conversation and saved reports. This action cannot be undone.
             </p>
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-2.5 justify-end">
               <button
                 onClick={() => setShowClearConfirm(false)}
-                className="px-4 py-2 rounded-lg text-sm transition-all cursor-pointer"
-                style={{
-                  background: "rgba(255,255,255,0.06)",
-                  color: "var(--text-secondary)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                }}
+                className="px-4 py-2 rounded-xl text-xs text-slate-300 bg-slate-800/80 hover:bg-slate-800 border border-white/10 transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmClearChat}
-                className="px-4 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer"
-                style={{
-                  background: "linear-gradient(135deg, #ef4444, #dc2626)",
-                  color: "#fff",
-                  border: "none",
-                  boxShadow: "0 2px 12px rgba(239,68,68,0.3)",
-                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 shadow-lg shadow-rose-500/25 transition-all cursor-pointer"
               >
-                Clear & Start Fresh
+                Clear History
               </button>
             </div>
           </div>

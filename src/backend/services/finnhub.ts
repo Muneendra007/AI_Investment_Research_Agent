@@ -5,14 +5,8 @@
 
 const FINNHUB_BASE = "https://finnhub.io/api/v1";
 
-function getApiKey(): string {
-  const key = process.env.FINNHUB_API_KEY;
-  if (!key) {
-    throw new Error(
-      "FINNHUB_API_KEY is not set. Get one free at https://finnhub.io/register"
-    );
-  }
-  return key;
+function getApiKey(): string | null {
+  return process.env.FINNHUB_API_KEY || null;
 }
 
 /** Rate limiter: simple delay between calls (60/min ≈ 1/sec) */
@@ -28,10 +22,15 @@ async function rateLimitDelay(): Promise<void> {
 
 /** Generic fetch wrapper with error handling */
 async function finnhubFetch<T>(endpoint: string, params: Record<string, string> = {}): Promise<T | null> {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    return null;
+  }
+
   await rateLimitDelay();
 
   const url = new URL(`${FINNHUB_BASE}${endpoint}`);
-  url.searchParams.set("token", getApiKey());
+  url.searchParams.set("token", apiKey);
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }

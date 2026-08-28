@@ -10,17 +10,11 @@ export default function NewsSentiment({ news }: NewsSentimentProps) {
   if (!news || news.length === 0) {
     return (
       <div className="glass-card p-6 animate-slide-up stagger-4">
-        <h3
-          className="text-lg font-semibold mb-3"
-          style={{ color: "var(--text-primary)" }}
-        >
-          📰 News & Sentiment
+        <h3 className="text-base font-bold mb-2 text-slate-100 flex items-center gap-2">
+          <span>📰</span> News & Sentiment Stream
         </h3>
-        <p
-          className="text-sm"
-          style={{ color: "var(--text-muted)" }}
-        >
-          No recent news available for this company.
+        <p className="text-xs text-slate-400">
+          No live media articles found for this symbol.
         </p>
       </div>
     );
@@ -30,108 +24,79 @@ export default function NewsSentiment({ news }: NewsSentimentProps) {
   for (const n of news) sentimentCounts[n.sentiment]++;
 
   const total = news.length;
-  const sentimentScore = (
-    ((sentimentCounts.positive - sentimentCounts.negative) / total) *
-    100
-  ).toFixed(0);
+  const netScore = total > 0 ? Math.round(((sentimentCounts.positive - sentimentCounts.negative) / total) * 100) : 0;
 
   return (
     <div className="glass-card p-6 animate-slide-up stagger-4">
-      {/* Header with sentiment summary */}
-      <div className="flex items-center justify-between mb-4">
-        <h3
-          className="text-lg font-semibold"
-          style={{ color: "var(--text-primary)" }}
-        >
-          📰 News & Sentiment
-        </h3>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full" style={{ background: "var(--sentiment-positive)" }} />
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {sentimentCounts.positive}
-            </span>
+      {/* Header with sentiment breakdown */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-3 border-b border-white/5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-sm">
+            📰
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full" style={{ background: "var(--sentiment-neutral)" }} />
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {sentimentCounts.neutral}
-            </span>
+          <div>
+            <h3 className="text-base font-bold text-slate-100">
+              News & Media Sentiment
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Live algorithmic NLP classification
+            </p>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full" style={{ background: "var(--sentiment-negative)" }} />
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {sentimentCounts.negative}
-            </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 text-[11px] font-mono text-slate-400 px-2 py-0.5 rounded bg-slate-900/60 border border-white/5">
+            <span className="text-emerald-400 font-bold">{sentimentCounts.positive}</span> pos ·{" "}
+            <span className="text-slate-400">{sentimentCounts.neutral}</span> neu ·{" "}
+            <span className="text-rose-400 font-bold">{sentimentCounts.negative}</span> neg
           </div>
+
           <span
-            className="text-xs font-mono px-2 py-0.5 rounded-md"
-            style={{
-              background:
-                Number(sentimentScore) > 0
-                  ? "rgba(52, 211, 153, 0.15)"
-                  : Number(sentimentScore) < 0
-                    ? "rgba(248, 113, 113, 0.15)"
-                    : "rgba(148, 163, 184, 0.15)",
-              color:
-                Number(sentimentScore) > 0
-                  ? "var(--sentiment-positive)"
-                  : Number(sentimentScore) < 0
-                    ? "var(--sentiment-negative)"
-                    : "var(--sentiment-neutral)",
-            }}
+            className={`text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${
+              netScore > 0
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+                : netScore < 0
+                ? "bg-rose-500/10 text-rose-400 border-rose-500/25"
+                : "bg-slate-800 text-slate-300 border-white/10"
+            }`}
           >
-            {Number(sentimentScore) > 0 ? "+" : ""}
-            {sentimentScore}%
+            {netScore > 0 ? "+" : ""}{netScore}% Sentiment
           </span>
         </div>
       </div>
 
-      {/* News list */}
-      <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+      {/* News Headline Stream */}
+      <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
         {news.map((item, i) => (
           <a
             key={i}
-            href={item.url}
+            href={item.url || "#"}
             target="_blank"
             rel="noopener noreferrer"
-            className="block p-3 rounded-xl transition-all duration-200 hover:scale-[1.01]"
-            style={{
-              background: "var(--surface-elevated)",
-              textDecoration: "none",
-            }}
+            className="block p-3 rounded-xl bg-slate-900/40 border border-white/5 hover:border-cyan-500/30 hover:bg-slate-900/70 transition-all duration-200 group"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <p
-                  className="text-sm font-medium leading-snug line-clamp-2"
-                  style={{ color: "var(--text-primary)" }}
-                >
+                <p className="text-xs sm:text-sm font-medium text-slate-200 group-hover:text-cyan-300 leading-snug line-clamp-2 transition-colors">
                   {item.headline}
                 </p>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span
-                    className="text-xs"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {item.source}
-                  </span>
-                  <span
-                    className="text-xs"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    ·
-                  </span>
-                  <span
-                    className="text-xs"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {item.date}
+                <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-400">
+                  <span className="font-semibold text-slate-400">{item.source}</span>
+                  <span>·</span>
+                  <span>{item.date}</span>
+                  <span className="ml-auto opacity-0 group-hover:opacity-100 text-cyan-400 transition-opacity">
+                    ↗
                   </span>
                 </div>
               </div>
               <span
-                className={`badge-${item.sentiment} px-2 py-0.5 rounded-md text-xs font-medium flex-shrink-0`}
+                className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded border flex-shrink-0 ${
+                  item.sentiment === "positive"
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    : item.sentiment === "negative"
+                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                    : "bg-slate-800 text-slate-400 border-white/5"
+                }`}
               >
                 {item.sentiment}
               </span>

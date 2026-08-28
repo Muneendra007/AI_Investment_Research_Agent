@@ -1,14 +1,8 @@
 // ─── Tavily Web Search API Client ─────────────────────────────────────
 // Simple client to query Tavily API for fallback news and company overviews.
 
-function getApiKey(): string {
-  const key = process.env.TAVILY_API_KEY;
-  if (!key) {
-    throw new Error(
-      "TAVILY_API_KEY is not set. Please add it to your .env file."
-    );
-  }
-  return key;
+function getApiKey(): string | null {
+  return process.env.TAVILY_API_KEY || null;
 }
 
 export interface TavilySearchResult {
@@ -36,6 +30,9 @@ export async function tavilySearch(
   includeAnswer = false
 ): Promise<TavilyResponse | null> {
   const apiKey = getApiKey();
+  if (!apiKey) {
+    return null;
+  }
 
   try {
     const response = await fetch("https://api.tavily.com/search", {

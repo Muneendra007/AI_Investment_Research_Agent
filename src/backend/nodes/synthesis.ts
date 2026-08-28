@@ -178,50 +178,20 @@ export async function synthesisNode(
 
     const structuredLlm = llm.withStructuredOutput(DecisionSchema);
     const decision = await structuredLlm.invoke(
-      `You are a senior investment analyst making a final recommendation on:
+      `You are a senior investment analyst evaluating ${resolvedEntity.name} (${resolvedEntity.ticker}) in ${resolvedEntity.sector}.
 
-COMPANY: ${resolvedEntity.name} (${resolvedEntity.ticker})
-SECTOR: ${resolvedEntity.sector}
-EXCHANGE: ${resolvedEntity.exchange}
-
-═══ RESEARCH DATA ═══
-
+RESEARCH DATA:
 ${formatOverview(state)}
-
 ${formatFinancials(state)}
-
 ${formatNews(state)}
-
 ${formatCompetitive(state)}
-
 ${formatRisks(state)}
 
-${dataGaps.length > 0 ? `⚠️ DATA GAPS: Missing ${dataGaps.join(", ")}. Reduce confidence accordingly.` : ""}
-${state.errors.length > 0 ? `⚠️ ERRORS DURING ANALYSIS: ${state.errors.join("; ")}` : ""}
-
-═══ DECISION RUBRIC ═══
-
-Score each dimension 1-10:
-1. **Financial Health** (revenue growth trend, margin quality, debt sustainability)
-2. **Valuation** (P/E vs sector norms, price relative to growth rate)
-3. **Momentum** (news sentiment trend, market perception)
-4. **Risk Profile** (10=low risk, 1=high risk — inverse scale)
-5. **Competitive Position** (moat durability, market positioning strength)
-
-DECISION RULES:
-- Average score ≥ 6.5 → lean Invest
-- Average score < 5.0 → lean Pass
-- Between 5.0-6.5 → use judgment, reduce confidence
-- Each HIGH severity risk flag should subtract 5-10 points from confidence
-- Missing data should reduce confidence by 10 points per gap
-- Confidence should rarely exceed 85% (we're using limited data sources)
-
-YOUR OUTPUT MUST BE STRUCTURED FOR A RETAIL INVESTOR:
-- **executiveSummary**: Translate the complex findings into a clear, direct, bottom-line recommendation in plain English. State whether it's generally safe/worthwhile or risky to invest.
-- **pros**: Concrete positive points, citing specific data numbers from the research.
-- **cons**: Concrete risks or negative points, citing specific data numbers from the research.
-
-Make your decision.`
+RULES:
+- Evaluate Financial Health, Valuation, Momentum, Risk Profile (10=low risk, 1=high risk), and Competitive Position (1-10 each).
+- Average score >= 6.0 -> Invest; else Pass.
+- Confidence: 0-95% (reduce if missing data or high risks).
+- Provide a plain-English executive summary, 2-4 pros, and 2-4 cons citing specific numbers.`
     );
 
     return {
