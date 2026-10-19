@@ -5,6 +5,7 @@
 import { z } from "zod";
 import type { AgentGraphState } from "@/backend/state";
 import { llmCreative } from "@/backend/services/llm";
+import { getRecentSECFilings } from "@/backend/services/secedgar";
 
 /** Zod schema for risk flags output */
 const RiskFlagsSchema = z.object({
@@ -39,6 +40,9 @@ export async function riskFlagsNode(
   }
 
   try {
+    // Parallel fetch SEC EDGAR filings
+    const secFilings = await getRecentSECFilings(resolvedEntity.ticker, 5);
+
     // Build context from available news
     const newsContext =
       news && news.length > 0
@@ -48,7 +52,14 @@ export async function riskFlagsNode(
                 `- [${n.sentiment.toUpperCase()}] ${n.headline} (${n.date})`
             )
             .join("\n")}`
-        : "\nNo recent news available — rely on general knowledge.";
+        : "\nNo recent news available.";
+
+    const secContext =
+      secFilings.length > 0
+        ? `\nRecent SEC EDGAR Official Filings:\n${secFilings
+            .map((f) => `- [${f.form}] Filed on ${f.filingDate}: ${f.primaryDocDescription}`)
+            .join("\n")}`
+        : "";
 
     const structuredLlm = llmCreative.withStructuredOutput(RiskFlagsSchema);
     const result = await structuredLlm.invoke(
@@ -58,6 +69,7 @@ Company: ${resolvedEntity.name} (${resolvedEntity.ticker})
 Sector: ${resolvedEntity.sector}
 Country: ${resolvedEntity.country || "Unknown"}
 ${newsContext}
+${secContext}
 
 Identify concrete risk flags across these categories:
 1. **Regulatory/Legal**: Active lawsuits, regulatory investigations, compliance issues, antitrust concerns

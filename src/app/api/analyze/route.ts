@@ -37,9 +37,10 @@ const IntentSchema = z.object({
     ),
   companyName: z
     .string()
+    .nullable()
     .optional()
     .describe(
-      "If type is 'analyze', extract the company name or stock ticker to research (e.g. 'Apple', 'Tesla', 'MSFT'). Leave empty otherwise."
+      "If type is 'analyze', extract the company name or stock ticker to research (e.g. 'Apple', 'Tesla', 'MSFT'). Leave null or empty otherwise."
     ),
 });
 
@@ -101,29 +102,45 @@ export async function POST(request: NextRequest) {
       };
 
       try {
+        // Format recent conversation context for awareness (ChatMessage uses sender and text)
+        const conversationHistory = (history || [])
+          .filter((h) => h.text && h.text.trim().length > 0)
+          .slice(-8)
+          .map((h) => `${h.sender === "user" ? "User" : "Assistant"}: ${h.text.trim()}`)
+          .join("\n\n");
+
         // 1. Classify Message Intent using Groq
         const classifier = llm.withStructuredOutput(IntentSchema);
         const classification = await classifier.invoke(
-          `Classify the following user message:
-          
-"${message}"
+          `You are an intent classifier for a conversational AI investment assistant.
+Your goal is to ensure the assistant is friendly, natural to talk to, and ONLY runs a full research pipeline when the user explicitly asks for an analysis or investment verdict.
 
-Options:
-- analyze: The user is asking to analyze or research a stock/company (e.g. "is TSLA a buy?", "tell me about Tata", "should I invest in Microsoft?"). Extract the name of the company.
-- followup: The user is asking a follow-up question or asking to explain previous metrics, news, or risks of a company (e.g. "why did you pass?", "what are its margins?", "tell me more about the risks").
-- chat: A general greeting, question about how this works, or casual chat (e.g. "hello", "hi", "how are you?", "who are you?").`
+User Message: "${message}"
+
+${conversationHistory ? `Recent Conversation History:\n${conversationHistory}\n` : ""}
+
+Classify as one of:
+- analyze: ONLY choose this if the user EXPLICITLY asks to run research, generate a scorecard/report, or give a buy/sell/pass verdict (e.g., "analyze Apple", "evaluate Tesla", "is Microsoft a buy?", "run research on Tata Motors", "give me a report on Google"). Do NOT choose analyze for general questions or casual chat.
+- followup: The user is asking a question directly referring back to the previously analyzed company's data (e.g., "why did you pass?", "what was its P/E ratio again?", "tell me more about the risks you found").
+- chat: The DEFAULT for almost everything else: greetings ("hi", "hello"), casual conversation, thank yous, general knowledge inquiries ("what is the company name of mama earth?", "who is the CEO of Tesla?"), discussions about finance or the stock market in general, or when the user is just conversing naturally without asking you to run an investment evaluation.`
         );
 
         const { type, companyName } = classification;
 
-        // 2. Handle Chat Response
+        // 2. Handle Chat Response (Friendly, conversational, knowledgeable)
         if (type === "chat") {
           const chatResult = await llm.invoke(
-            `You are the AI Investment Research Agent, a helpful multi-agent assistant built with Next.js, LangGraph, and Groq.
-            
-Provide a friendly, conversational response to the user's greeting/message. Explain briefly that you can research any company (public or private) and give detailed Buy/Pass decisions.
+            `You are AuraInvest, a friendly, intelligent, and warm AI investment partner.
+You converse naturally, remember conversation context, and answer finance, business, and company questions clearly and casually.
 
-Message: "${message}"`
+Instructions:
+- CRITICAL: Read the Recent Chat History below. If the user refers to "it", "they", "the company", or asks a follow-up question (e.g. "how it listed in the stocks?"), resolve what company or topic they were just discussing and answer specifically about THAT company.
+- Be conversational, concise, natural, and helpful.
+- Answer their question directly in clear plain English.
+- If relevant, let the user know they can say "analyze <company>" whenever they want a full research report with financial health, valuation, and Buy/Pass scores.
+
+${conversationHistory ? `Recent Chat History:\n${conversationHistory}\n` : ""}
+User: "${message}"`
           );
           sendEvent("chat_response", { text: chatResult.content });
           controller.close();

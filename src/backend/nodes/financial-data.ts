@@ -12,6 +12,10 @@ import {
   getAlphaVantageQuote,
   getAlphaVantageOverview,
 } from "@/backend/services/alphavantage";
+import {
+  getFMPProfile,
+  getFMPRatiosTTM,
+} from "@/backend/services/fmp";
 
 export async function financialDataNode(
   state: AgentGraphState
@@ -29,51 +33,37 @@ export async function financialDataNode(
   const ticker = resolvedEntity.ticker;
 
   try {
-    // Fetch quote and metrics from Finnhub first
-    let [quote, metrics] = await Promise.all([
+    // Parallel fetch from Finnhub and FMP
+    let [quote, metrics, fmpRatios, fmpProfile] = await Promise.all([
       getQuote(ticker),
       getMetrics(ticker),
+      getFMPRatiosTTM(ticker),
+      getFMPProfile(ticker),
     ]);
 
     // Fallback: Try Alpha Vantage if Finnhub returns no quote
-    if (!quote || quote.c === 0) {
-      const avQuote = await getAlphaVantageQuote(ticker);
-      if (avQuote && avQuote.price > 0) {
-        const avOverview = await getAlphaVantageOverview(ticker);
-        const pe = avOverview?.PERatio ? parseFloat(avOverview.PERatio) : null;
-        const revGrowth = avOverview?.QuarterlyRevenueGrowthYOY
-          ? parseFloat(avOverview.QuarterlyRevenueGrowthYOY) * 100
-          : null;
-        const opMargin = avOverview?.OperatingMarginTTM
-          ? parseFloat(avOverview.OperatingMarginTTM) * 100
-          : null;
-        const profitMargin = avOverview?.ProfitMargin
-          ? parseFloat(avOverview.ProfitMargin) * 100
-          : null;
+    let price = quote?.c ?? 0;
+    let change = quote?.d ?? 0;
+    let changePercent = quote?.dp ?? 0;
 
-        return {
-          currentNode: "financialData",
-          financials: {
-            currentPrice: avQuote.price,
-            change: avQuote.change,
-            changePercent: avQuote.changePercent,
-            high52Week: avQuote.high,
-            low52Week: avQuote.low,
-            peRatio: Number.isFinite(pe) ? pe : null,
-            peerAvgPE: null,
-            marketCap: resolvedEntity.marketCap ?? null,
-            revenueGrowth: Number.isFinite(revGrowth) ? revGrowth : null,
-            grossMargin: null,
-            operatingMargin: Number.isFinite(opMargin) ? opMargin : null,
-            netMargin: Number.isFinite(profitMargin) ? profitMargin : null,
-            debtToEquity: null,
-            returnOnEquity: null,
-            beta: avOverview?.Beta ? parseFloat(avOverview.Beta) : null,
-          },
-          completedNodes: ["financialData"],
-        };
+    if (price === 0) {
+      if (fmpProfile?.price) {
+        price = fmpProfile.price;
+        change = fmpProfile.changes ?? 0;
+        changePercent = fmpProfile.changes
+          ? (fmpProfile.changes / (fmpProfile.price - fmpProfile.changes)) * 100
+          : 0;
+      } else {
+        const avQuote = await getAlphaVantageQuote(ticker);
+        if (avQuote && avQuote.price > 0) {
+          price = avQuote.price;
+          change = avQuote.change;
+          changePercent = avQuote.changePercent;
+        }
       }
+    }
 
+    if (price === 0) {
       return {
         currentNode: "financialData",
         errors: [
@@ -85,24 +75,65 @@ export async function financialDataNode(
 
     const m = metrics?.metric || {};
 
+    // Combine Finnhub + FMP for maximum coverage
+    const peRatio =
+      m.peBasicExclExtraTTM ??
+      m.peTTM ??
+      (fmpRatios?.peRatioTTM && Number.isFinite(fmpRatios.peRatioTTM)
+        ? fmpRatios.peRatioTTM
+        : null);
+
+    const grossMargin =
+      m.grossMarginTTM ??
+      (fmpRatios?.grossProfitMarginTTM
+        ? fmpRatios.grossProfitMarginTTM * 100
+        : null);
+
+    const operatingMargin =
+      m.operatingMarginTTM ??
+      (fmpRatios?.operatingProfitMarginTTM
+        ? fmpRatios.operatingProfitMarginTTM * 100
+        : null);
+
+    const netMargin =
+      m.netProfitMarginTTM ??
+      (fmpRatios?.netProfitMarginTTM
+        ? fmpRatios.netProfitMarginTTM * 100
+        : null);
+
+    const debtToEquity =
+      m.totalDebtToEquityQuarterly ??
+      (fmpRatios?.debtEquityRatioTTM && Number.isFinite(fmpRatios.debtEquityRatioTTM)
+        ? fmpRatios.debtEquityRatioTTM
+        : null);
+
+    const returnOnEquity =
+      m.roeTTM ??
+      (fmpRatios?.returnOnEquityTTM
+        ? fmpRatios.returnOnEquityTTM * 100
+        : null);
+
+    const beta = m.betaMonthly5Y ?? fmpProfile?.beta ?? null;
+    const marketCap = resolvedEntity.marketCap ?? fmpProfile?.mktCap ?? null;
+
     return {
       currentNode: "financialData",
       financials: {
-        currentPrice: quote.c,
-        change: quote.d,
-        changePercent: quote.dp,
+        currentPrice: price,
+        change,
+        changePercent,
         high52Week: m["52WeekHigh"] ?? 0,
         low52Week: m["52WeekLow"] ?? 0,
-        peRatio: m.peBasicExclExtraTTM ?? m.peTTM ?? null,
-        peerAvgPE: null, // Will be enriched by competitive node if needed
-        marketCap: resolvedEntity.marketCap ?? null,
+        peRatio,
+        peerAvgPE: null,
+        marketCap,
         revenueGrowth: m.revenueGrowthTTMYoy ?? null,
-        grossMargin: m.grossMarginTTM ?? null,
-        operatingMargin: m.operatingMarginTTM ?? null,
-        netMargin: m.netProfitMarginTTM ?? null,
-        debtToEquity: m.totalDebtToEquityQuarterly ?? null,
-        returnOnEquity: m.roeTTM ?? null,
-        beta: m.betaMonthly5Y ?? null,
+        grossMargin,
+        operatingMargin,
+        netMargin,
+        debtToEquity,
+        returnOnEquity,
+        beta,
       },
       completedNodes: ["financialData"],
     };

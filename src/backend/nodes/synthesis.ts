@@ -22,17 +22,13 @@ const DecisionSchema = z.object({
     ),
   pros: z
     .array(z.string())
-    .min(2)
-    .max(4)
     .describe(
-      "2-4 explicit reasons to invest, highlighting financial strengths, competitive advantages, or growth drivers"
+      "2-5 explicit reasons to invest, highlighting financial strengths, competitive advantages, or growth drivers"
     ),
   cons: z
     .array(z.string())
-    .min(2)
-    .max(4)
     .describe(
-      "2-4 explicit risks or reasons to pass/cautious, highlighting valuation concerns, risk flags, or market headwinds"
+      "2-5 explicit risks or reasons to pass/cautious, highlighting valuation concerns, risk flags, or market headwinds"
     ),
   scoreBreakdown: z.object({
     financialHealth: z
@@ -207,6 +203,38 @@ RULES:
       completedNodes: ["synthesis"],
     };
   } catch (error) {
+    // If the model produced a valid JSON decision but was rejected by strict validator, recover it
+    let recovered: any = null;
+    try {
+      const errStr = error instanceof Error ? error.message : String(error);
+      const match = errStr.match(/"failed_generation":\s*"([^"]+)"/);
+      if (match && match[1]) {
+        const unescaped = match[1].replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+        recovered = JSON.parse(unescaped);
+      }
+    } catch {}
+
+    if (recovered && recovered.verdict && recovered.executiveSummary) {
+      return {
+        currentNode: "synthesis",
+        decision: {
+          verdict: recovered.verdict === "Invest" ? "Invest" : "Pass",
+          confidence: typeof recovered.confidence === "number" ? Math.min(recovered.confidence, 95) : 60,
+          executiveSummary: recovered.executiveSummary,
+          pros: Array.isArray(recovered.pros) ? recovered.pros.filter(Boolean) : [],
+          cons: Array.isArray(recovered.cons) ? recovered.cons.filter(Boolean) : [],
+          scoreBreakdown: recovered.scoreBreakdown || {
+            financialHealth: 5,
+            valuation: 5,
+            momentum: 5,
+            riskProfile: 5,
+            competitivePosition: 5,
+          },
+        },
+        completedNodes: ["synthesis"],
+      };
+    }
+
     const message =
       error instanceof Error ? error.message : "Unknown error";
     return {

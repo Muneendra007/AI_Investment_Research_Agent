@@ -67,7 +67,7 @@ function createModel(temperature: number): BaseChatModel {
   // 1. Check Groq API Key (Primary & Recommended)
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey && groqKey.trim().length > 0) {
-    const modelName = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
+    const modelName = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
     return new ChatGroq({
       apiKey: groqKey.trim(),
       model: modelName,
