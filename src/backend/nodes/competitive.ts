@@ -38,13 +38,14 @@ export async function competitiveNode(
   }
 
   const ticker = resolvedEntity.ticker;
+  let filteredPeers: string[] = [];
 
   try {
     // Get Finnhub peers list (factual data)
     const finnhubPeers = await getPeers(ticker);
 
     // Filter out the company itself from peers
-    const filteredPeers = finnhubPeers.filter(
+    filteredPeers = finnhubPeers.filter(
       (p) => p !== ticker && p.length > 0
     );
 
