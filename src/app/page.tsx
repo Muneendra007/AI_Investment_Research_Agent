@@ -336,49 +336,46 @@ export default function Home() {
       <header className="flex items-center justify-between py-3.5 px-4 sm:px-6 rounded-2xl glass-panel mb-4">
         <div className="flex items-center gap-3.5">
           {/* Logo Badge */}
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 via-cyan-500 to-purple-600 p-[1px] shadow-lg shadow-cyan-500/20">
-            <div className="w-full h-full bg-slate-950 rounded-[11px] flex items-center justify-center text-lg">
-              ⚡
-            </div>
+          <div className="w-9 h-9 rounded-lg bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-semibold text-sm">
+            AI
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-white font-sans">
-                AuraInvest <span className="text-cyan-400">AI</span>
+              <h1 className="text-sm sm:text-base font-semibold tracking-tight text-slate-100 font-sans">
+                AuraInvest <span className="text-slate-400 font-normal">Terminal</span>
               </h1>
-              <span className="hidden sm:inline-flex px-2 py-0.5 text-[10px] font-mono font-bold rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                v2.0
+              <span className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-slate-800 text-slate-400 border border-slate-700">
+                PRO
               </span>
             </div>
             <p className="text-[11px] text-slate-400 hidden sm:block">
-              Multi-Node LangGraph Pipeline · Powered by Groq LPU
+              Multi-Agent Quantitative Equity Research Pipeline
             </p>
           </div>
         </div>
 
         {/* Status Indicators & Clear Action */}
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/60 border border-white/5 text-xs">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
-            <span className="text-slate-300 font-mono text-[11px]">
-              Groq Engine Online
+          <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="text-slate-400 font-mono text-[11px]">
+              Engine Ready
             </span>
           </div>
 
           {messages.length > 1 && (
             <button
               onClick={handleNewChat}
-              className="text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all border border-rose-500/30 text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 hover:border-rose-500/50 cursor-pointer flex items-center gap-1.5"
+              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer flex items-center gap-1.5"
             >
-              <span>🧹</span>
-              <span>New Session</span>
+              <span>Reset</span>
             </button>
           )}
         </div>
       </header>
 
       {/* ─── Chat Feed Section ─── */}
-      <section className="flex-1 overflow-y-auto px-1 py-4 space-y-6 scrollbar-thin">
+      <section className="flex-1 overflow-y-auto px-1 py-4 space-y-5 scrollbar-thin">
         {messages.map((message) => {
           const isUser = message.sender === "user";
           const hasResult = !!message.analysisResult;
@@ -387,21 +384,21 @@ export default function Home() {
           return (
             <div
               key={message.id}
-              className={`flex flex-col ${isUser ? "items-end animate-slide-up" : "items-start animate-fade-in"}`}
+              className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
             >
               {/* Message Header Avatar & Label */}
-              <div className="flex items-center gap-2 mb-1.5 px-1">
-                <span className="text-xs font-semibold text-slate-400 font-mono">
-                  {isUser ? "👤 You" : "🤖 AuraInvest Agent"}
+              <div className="flex items-center gap-2 mb-1 px-1">
+                <span className="text-[11px] font-medium text-slate-500">
+                  {isUser ? "You" : "AuraInvest"}
                 </span>
               </div>
 
               {/* Message Bubble Card */}
               <div
-                className={`max-w-[92%] sm:max-w-[85%] rounded-2xl p-5 text-sm leading-relaxed border transition-all ${
+                className={`max-w-[92%] sm:max-w-[85%] rounded-xl p-4 text-sm leading-relaxed border transition-all ${
                   isUser
-                    ? "bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white border-white/10 shadow-lg shadow-cyan-900/20 rounded-tr-none"
-                    : "glass-panel text-slate-200 rounded-tl-none border-white/10"
+                    ? "bg-blue-600 text-white border-blue-500"
+                    : "bg-slate-900/90 text-slate-200 border-slate-800 shadow-sm"
                 }`}
               >
                 {/* Message Content */}
@@ -411,7 +408,7 @@ export default function Home() {
 
                 {/* Inline Multi-Node Research Progress Tracker */}
                 {message.isAnalyzing && activeAnalysisState && (
-                  <div className="mt-4 p-4 rounded-xl bg-slate-950/60 border border-cyan-500/20 shadow-inner">
+                  <div className="mt-3 p-3.5 rounded-lg bg-slate-950/80 border border-slate-800">
                     <PipelineProgress
                       nodes={PIPELINE_NODES.map((node) => ({
                         ...node,
@@ -423,23 +420,20 @@ export default function Home() {
 
                 {/* Toggle Dashboard Button */}
                 {hasResult && message.analysisResult && (
-                  <div className="mt-4 pt-3.5 border-t border-white/10 flex flex-wrap justify-between items-center gap-3">
+                  <div className="mt-4 pt-3 border-t border-slate-800 flex flex-wrap justify-between items-center gap-3">
                     <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                       <span>Target: {message.analysisResult.resolvedEntity?.ticker || message.analysisResult.companyName}</span>
                     </div>
                     <button
                       onClick={() => setExpandedAnalysisId(isExpanded ? null : message.id)}
-                      className="text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-md"
-                      style={{
-                        background: isExpanded
-                          ? "rgba(255, 255, 255, 0.08)"
-                          : "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)",
-                        color: "white",
-                        border: isExpanded ? "1px solid rgba(255,255,255,0.15)" : "none",
-                      }}
+                      className={`text-xs font-medium px-3.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 border ${
+                        isExpanded
+                          ? "bg-slate-800 text-slate-300 border-slate-700"
+                          : "bg-blue-600 text-white border-blue-500 hover:bg-blue-500"
+                      }`}
                     >
-                      <span>{isExpanded ? "▲ Collapse Cockpit" : "📊 Open Full Research Cockpit"}</span>
+                      <span>{isExpanded ? "Hide Research Cockpit" : "View Research Cockpit"}</span>
                     </button>
                   </div>
                 )}
@@ -583,7 +577,7 @@ export default function Home() {
               {SUGGESTION_CATEGORIES.map((cat, idx) => (
                 <div key={idx} className="space-y-1.5">
                   <span className="text-[11px] font-bold text-slate-400 pl-1">
-                    {cat.category}
+                    {cat.category.replace(/[^a-zA-Z &]/g, "").trim()}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {cat.items.map((chip, i) => (
@@ -593,7 +587,7 @@ export default function Home() {
                           setInput(chip.query);
                           handleSendMessage(chip.query);
                         }}
-                        className="text-xs px-3 py-1.5 rounded-xl border border-white/10 bg-slate-900/50 hover:bg-cyan-500/10 hover:border-cyan-500/30 text-slate-200 transition-all cursor-pointer"
+                        className="text-xs px-2.5 py-1 rounded-md border border-slate-800 bg-slate-900/60 hover:bg-slate-800 hover:border-slate-700 text-slate-300 transition-all cursor-pointer font-medium"
                       >
                         {chip.label}
                       </button>
@@ -606,17 +600,17 @@ export default function Home() {
         </section>
       )}
 
-      {/* ─── Floating Search / Input Bar ─── */}
+      {/* ─── Clean Search / Input Bar ─── */}
       <footer className="pt-2">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleSendMessage(input);
           }}
-          className="relative flex items-center glass-panel p-1.5 shadow-2xl border-white/10"
+          className="relative flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1.5 shadow-md focus-within:border-blue-500 transition-colors"
         >
-          <div className="pl-3.5 pr-2 text-slate-400">
-            <span>🔍</span>
+          <div className="pl-3 pr-2 text-slate-500 text-xs font-mono">
+            <span>&gt;</span>
           </div>
           <input
             type="text"
@@ -625,22 +619,22 @@ export default function Home() {
             disabled={loading}
             placeholder={
               loading
-                ? "Autonomous agents analyzing pipeline..."
-                : "Ask anything: 'Analyze NVDA', 'Is Tesla a buy?', 'Tata Motors valuation'..."
+                ? "Running quantitative research pipeline..."
+                : "Ask any question, or run 'Analyze <company>'..."
             }
-            className="flex-1 bg-transparent border-none text-slate-100 placeholder-slate-500 text-sm focus:outline-none py-3 pr-24"
+            className="flex-1 bg-transparent border-none text-slate-100 placeholder-slate-500 text-sm focus:outline-none py-2.5 pr-20"
           />
           <button
             type="submit"
             disabled={loading || input.trim().length === 0}
-            className="btn-primary px-5 py-2.5 text-xs font-bold flex items-center gap-1.5 shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+            className="btn-primary px-4 py-2 text-xs font-medium flex items-center gap-1.5 disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <span>{loading ? "Analyzing..." : "Research"}</span>
-            <span>↵</span>
+            <span>{loading ? "Processing" : "Send"}</span>
+            <span className="opacity-60 text-[10px]">↵</span>
           </button>
         </form>
-        <p className="text-[10px] text-center text-slate-500 mt-2 font-mono">
-          AuraInvest AI provides algorithmic financial research. Not direct financial advice.
+        <p className="text-[10px] text-center text-slate-500 mt-2">
+          Algorithmic equity intelligence & synthesis. For informational purposes only.
         </p>
       </footer>
 

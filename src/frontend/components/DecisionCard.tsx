@@ -40,20 +40,13 @@ export default function DecisionCard({
 
   return (
     <div
-      className={`glass-panel p-6 sm:p-8 animate-slide-up stagger-1 border relative overflow-hidden ${
+      className={`glass-panel p-6 sm:p-7 border relative overflow-hidden ${
         isInvest
-          ? "border-emerald-500/30 shadow-[0_0_35px_rgba(16,185,129,0.12)]"
-          : "border-amber-500/30 shadow-[0_0_35px_rgba(245,158,11,0.12)]"
+          ? "border-emerald-500/30 bg-emerald-950/10"
+          : "border-slate-800 bg-slate-900/40"
       }`}
     >
-      {/* Background ambient ambient glow accent */}
-      <div
-        className={`absolute -top-24 -right-24 w-72 h-72 rounded-full blur-3xl pointer-events-none opacity-20 ${
-          isInvest ? "bg-emerald-500" : "bg-rose-500"
-        }`}
-      />
-
-      <div className="flex flex-col lg:flex-row items-center gap-8 relative z-10">
+      <div className="flex flex-col lg:flex-row items-center gap-7 relative z-10">
         {/* Confidence Gauge Ring */}
         <div className="relative flex-shrink-0 flex flex-col items-center">
           <div className="relative">
