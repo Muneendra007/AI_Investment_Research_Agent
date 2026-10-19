@@ -10,7 +10,6 @@ import {
 } from "@/backend/services/finnhub";
 import {
   getAlphaVantageQuote,
-  getAlphaVantageOverview,
 } from "@/backend/services/alphavantage";
 import {
   getFMPProfile,
@@ -34,7 +33,7 @@ export async function financialDataNode(
 
   try {
     // Parallel fetch from Finnhub and FMP
-    let [quote, metrics, fmpRatios, fmpProfile] = await Promise.all([
+    const [quote, metrics, fmpRatios, fmpProfile] = await Promise.all([
       getQuote(ticker),
       getMetrics(ticker),
       getFMPRatiosTTM(ticker),

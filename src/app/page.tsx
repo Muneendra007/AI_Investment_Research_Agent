@@ -42,8 +42,27 @@ const SUGGESTION_CATEGORIES = [
 ];
 
 export default function Home() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("aurainvest_chat_history");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          // fallback
+        }
+      }
+    }
+    return [
+      {
+        id: "welcome",
+        sender: "assistant",
+        text: "👋 **Welcome to AuraInvest AI** — your institutional multi-agent equity research terminal.\n\nAsk me about any company (public or private), e.g. *\"Is Nvidia a buy?\"* or *\"Analyze Tesla's valuation\"*. I will run 7 autonomous research nodes to deliver a comprehensive Buy/Pass verdict with score breakdowns, risk flags, and live financial metrics.",
+        timestamp: new Date().toISOString(),
+      },
+    ];
+  });
+  const [isLoaded, setIsLoaded] = useState(true);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
@@ -69,21 +88,6 @@ export default function Home() {
       },
     ]);
   };
-
-  // Load from local storage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("aurainvest_chat_history");
-    if (saved) {
-      try {
-        setMessages(JSON.parse(saved));
-      } catch {
-        setDefaultWelcome();
-      }
-    } else {
-      setDefaultWelcome();
-    }
-    setIsLoaded(true);
-  }, []);
 
   // Save to local storage when messages change
   useEffect(() => {

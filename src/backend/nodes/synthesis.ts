@@ -204,7 +204,7 @@ RULES:
     };
   } catch (error) {
     // If the model produced a valid JSON decision but was rejected by strict validator, recover it
-    let recovered: any = null;
+    let recovered: Record<string, unknown> | null = null;
     try {
       const errStr = error instanceof Error ? error.message : String(error);
       const match = errStr.match(/"failed_generation":\s*"([^"]+)"/);
@@ -214,7 +214,7 @@ RULES:
       }
     } catch {}
 
-    if (recovered && recovered.verdict && recovered.executiveSummary) {
+    if (recovered && typeof recovered.verdict === "string" && typeof recovered.executiveSummary === "string") {
       return {
         currentNode: "synthesis",
         decision: {
@@ -223,7 +223,7 @@ RULES:
           executiveSummary: recovered.executiveSummary,
           pros: Array.isArray(recovered.pros) ? recovered.pros.filter(Boolean) : [],
           cons: Array.isArray(recovered.cons) ? recovered.cons.filter(Boolean) : [],
-          scoreBreakdown: recovered.scoreBreakdown || {
+          scoreBreakdown: (recovered.scoreBreakdown as any) || {
             financialHealth: 5,
             valuation: 5,
             momentum: 5,

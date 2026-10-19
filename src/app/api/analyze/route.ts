@@ -79,12 +79,22 @@ export async function POST(request: NextRequest) {
   }
 
   const { message, history } = body;
-  if (!message || message.trim().length === 0) {
+  if (!message || typeof message !== "string" || message.trim().length === 0) {
     return NextResponse.json(
-      { error: "message is required" },
+      { error: "A non-empty string 'message' is required" },
       { status: 400 }
     );
   }
+
+  // Prevent DOS via excessive payload lengths
+  if (message.length > 500) {
+    return NextResponse.json(
+      { error: "Message exceeds maximum allowed length of 500 characters." },
+      { status: 400 }
+    );
+  }
+
+  const sanitizedMessage = message.trim().slice(0, 500);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -115,7 +125,7 @@ export async function POST(request: NextRequest) {
           `You are an intent classifier for a conversational AI investment assistant.
 Your goal is to ensure the assistant is friendly, natural to talk to, and ONLY runs a full research pipeline when the user explicitly asks for an analysis or investment verdict.
 
-User Message: "${message}"
+User Message: "${sanitizedMessage}"
 
 ${conversationHistory ? `Recent Conversation History:\n${conversationHistory}\n` : ""}
 
@@ -140,7 +150,7 @@ Instructions:
 - If relevant, let the user know they can say "analyze <company>" whenever they want a full research report with financial health, valuation, and Buy/Pass scores.
 
 ${conversationHistory ? `Recent Chat History:\n${conversationHistory}\n` : ""}
-User: "${message}"`
+User: "${sanitizedMessage}"`
           );
           sendEvent("chat_response", { text: chatResult.content });
           controller.close();
@@ -201,7 +211,7 @@ QUESTION:
 
           const graph = buildResearchGraph();
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let finalState: Record<string, any> = { companyName: queryName };
+          const finalState: Record<string, any> = { companyName: queryName };
           const announcedNodes = new Set<string>();
 
           const streamResult = await graph.stream(
