@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: aurainvest-committee-backend
+    runtime: python
+    buildCommand: pip install -r committee_service/requirements.txt
+    startCommand: uvicorn committee_service.server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.9
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
