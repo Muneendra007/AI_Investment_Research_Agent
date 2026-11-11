@@ -1,0 +1,69 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 336 >>
+stream
+BT
+/F1 11 Tf
+50 750 Td
+14 TL
+(Tesla Inc \(TSLA\) FY2025 Financial Summary: Automotive revenue reached .8 billion, a 15% increase YoY. Energy storage deployment doubled to 31.4 GWh generating .2 billion in high-margin revenue. Operating margin held at 8.2% with .4 billion in free cash flow and .6 billion in cash and investments.) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 269 >>
+stream
+BT
+/F1 11 Tf
+50 750 Td
+14 TL
+(Tesla Growth Catalysts & Opportunities: Volume production ramp of Cybercab and Robotaxi planned for 2026 across Texas and Shanghai. Megapack factory expansions underway in California and Shanghai to meet massive utility grid demand.) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 401 >>
+stream
+BT
+/F1 11 Tf
+50 750 Td
+14 TL
+(Tesla Risk Disclosures: Automotive gross margins excluding regulatory credits compressed to 14.6% due to pricing competition in China and Europe. Capital expenditures expected to exceed  billion annually for AI compute clusters and autonomous training infrastructure. Full Self-Driving regulatory approvals remain uncertain across major European and Asian markets.) Tj
+ET
+endstream
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000197 00000 n 
+0000000323 00000 n 
+0000000710 00000 n 
+0000000836 00000 n 
+0000001156 00000 n 
+0000001282 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+1734
+%%EOF

@@ -5,6 +5,7 @@
 
 import { z } from "zod";
 import type { AgentGraphState } from "@/backend/state";
+import type { ScoreBreakdown } from "@/frontend/types";
 import { llm } from "@/backend/services/llm";
 
 /** Zod schema for the final investment decision */
@@ -223,7 +224,7 @@ RULES:
           executiveSummary: recovered.executiveSummary,
           pros: Array.isArray(recovered.pros) ? recovered.pros.filter(Boolean) : [],
           cons: Array.isArray(recovered.cons) ? recovered.cons.filter(Boolean) : [],
-          scoreBreakdown: (recovered.scoreBreakdown as any) || {
+          scoreBreakdown: (recovered.scoreBreakdown as ScoreBreakdown | undefined) || {
             financialHealth: 5,
             valuation: 5,
             momentum: 5,

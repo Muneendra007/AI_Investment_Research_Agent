@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AuraInvest AI | Autonomous Investment Research Terminal",
+  title: "AuraInvest AI | Debate-Driven Investment Committee",
   description:
-    "Institutional-grade autonomous investment research agent powered by multi-node LangGraph pipeline and ultra-fast Groq LPU inference.",
+    "Dual-mode institutional investment research terminal powered by LangGraph live market intelligence and Microsoft Agent Framework multi-agent debate RAG.",
   keywords: [
     "AI Investment Research",
     "Stock Analysis",

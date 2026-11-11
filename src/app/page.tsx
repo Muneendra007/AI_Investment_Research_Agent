@@ -10,6 +10,7 @@ import NewsSentiment from "@/frontend/components/NewsSentiment";
 import RiskFlags from "@/frontend/components/RiskFlags";
 import CompetitiveLandscape from "@/frontend/components/CompetitiveLandscape";
 import OverviewCard from "@/frontend/components/OverviewCard";
+import InvestmentCommitteePanel from "@/frontend/components/InvestmentCommitteePanel";
 
 // ─── Pipeline node definitions ──
 const PIPELINE_NODES = [
@@ -62,7 +63,7 @@ export default function Home() {
       },
     ];
   });
-  const [isLoaded, setIsLoaded] = useState(true);
+  const [activeMode, setActiveMode] = useState<"chat" | "committee">("chat");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [expandedAnalysisId, setExpandedAnalysisId] = useState<string | null>(null);
@@ -78,23 +79,10 @@ export default function Home() {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  const setDefaultWelcome = () => {
-    setMessages([
-      {
-        id: "welcome",
-        sender: "assistant",
-        text: "👋 **Welcome to AuraInvest AI** — your institutional multi-agent equity research terminal.\n\nAsk me about any company (public or private), e.g. *\"Is Nvidia a buy?\"* or *\"Analyze Tesla's valuation\"*. I will run 7 autonomous research nodes to deliver a comprehensive Buy/Pass verdict with score breakdowns, risk flags, and live financial metrics.",
-        timestamp: new Date().toISOString(),
-      },
-    ]);
-  };
-
   // Save to local storage when messages change
   useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem("aurainvest_chat_history", JSON.stringify(messages));
-    }
-  }, [messages, isLoaded]);
+    localStorage.setItem("aurainvest_chat_history", JSON.stringify(messages));
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -335,7 +323,7 @@ export default function Home() {
   };
 
   return (
-    <main className="flex-1 flex flex-col max-w-6xl mx-auto w-full h-screen px-4 sm:px-6 py-4">
+    <main className="flex-1 flex flex-col w-full h-screen px-4 sm:px-8 lg:px-12 py-4">
       {/* ─── Top Navigation Bar ─── */}
       <header className="flex items-center justify-between py-3.5 px-4 sm:px-6 rounded-2xl glass-panel mb-4">
         <div className="flex items-center gap-3.5">
@@ -358,8 +346,33 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Status Indicators & Clear Action */}
-        <div className="flex items-center gap-3">
+        {/* Status Indicators, Mode Tabs & Clear Action */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="inline-flex rounded-xl bg-slate-950/70 border border-slate-800 p-0.5">
+            <button
+              type="button"
+              onClick={() => setActiveMode("chat")}
+              className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                activeMode === "chat"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              💬 Market Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMode("committee")}
+              className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                activeMode === "committee"
+                  ? "bg-purple-600 text-white shadow-sm"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              🏛️ Investment Committee
+            </button>
+          </div>
+
           <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-xs">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span className="text-slate-400 font-mono text-[11px]">
@@ -367,7 +380,7 @@ export default function Home() {
             </span>
           </div>
 
-          {messages.length > 1 && (
+          {activeMode === "chat" && messages.length > 1 && (
             <button
               onClick={handleNewChat}
               className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800 cursor-pointer flex items-center gap-1.5"
@@ -378,7 +391,11 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ─── Chat Feed Section ─── */}
+      {activeMode === "committee" ? (
+        <InvestmentCommitteePanel />
+      ) : (
+        <>
+          {/* ─── Chat Feed Section ─── */}
       <section className="flex-1 overflow-y-auto px-1 py-4 space-y-5 scrollbar-thin">
         {messages.map((message) => {
           const isUser = message.sender === "user";
@@ -641,6 +658,8 @@ export default function Home() {
           Algorithmic equity intelligence & synthesis. For informational purposes only.
         </p>
       </footer>
+        </>
+      )}
 
       {/* ─── Clear-Chat Confirmation Modal ─── */}
       {showClearConfirm && (
